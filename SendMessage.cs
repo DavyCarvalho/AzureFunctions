@@ -24,9 +24,7 @@ namespace AzureFunctionsWithServiceBus
 
             await SendMessageToAzureQueue(body);
 
-            var endTime = DateTime.UtcNow.AddHours(-3).ToString("HH:mm:ss");
-
-            await SendNotificationToSlack(body.Message, beginTime, endTime);
+            await SendNotificationToSlack(body.Message, beginTime);
 
             log.LogInformation($"SendMessage processed.");
         }
@@ -40,16 +38,17 @@ namespace AzureFunctionsWithServiceBus
             return JsonConvert.DeserializeObject<Body>(bodyString);
         }
 
-        private static async Task SendNotificationToSlack(string message, string beginTime, string endTime)
+        private static async Task SendNotificationToSlack(string message, string beginTime)
         {
             using var httpClient = new HttpClient(new HttpClientHandler());
 
-            var notification = $"O processo de REGISTRO NA FILA da mensagem: [ {message} ], iníciou as {beginTime} e finalizou as {endTime}";
+            var endTime = DateTime.UtcNow.AddHours(-3).ToString("HH:mm:ss");
+            var logNotification = $"O processo de REGISTRO NA FILA da mensagem: [ {message} ], iníciou as {beginTime} e finalizou as {endTime}";
 
-            var strContent = new StringContent("{'text':'" + notification + "'}");
-            var slackChannelUrl = Environment.GetEnvironmentVariable("SlackNotificationChannelWebhook");
+            var strContent = new StringContent("{'text':'" + logNotification + "'}");
+            var slackLogChannelUrl = Environment.GetEnvironmentVariable("SlackProcessLoggingChannelWebhook");
 
-            await httpClient.PostAsync(slackChannelUrl, strContent);
+            await httpClient.PostAsync(slackLogChannelUrl, strContent);
         }
 
         private static async Task SendMessageToAzureQueue(Body body)

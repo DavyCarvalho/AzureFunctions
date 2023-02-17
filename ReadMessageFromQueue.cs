@@ -10,27 +10,41 @@ namespace ReadMessageFromQueue
     public class ReadMessageFromQueue
     {
         [FunctionName("ReadMessageFromQueue")]
-        public static async Task Run([ServiceBusTrigger("asb-queue", Connection = "AzureWebJobsServiceBus")] string myQueueItem, ILogger log)
+        public static async Task Run([ServiceBusTrigger("asb-queue", Connection = "AzureWebJobsServiceBus")]string myQueueItem, ILogger log)
         {
             var beginTime = DateTime.UtcNow.AddHours(-3).ToString("HH:mm:ss");
 
             var dequeuedMsg = JsonConvert.DeserializeObject<DequeuedMessage>(myQueueItem);
 
-            var endTime = DateTime.UtcNow.AddHours(-3).ToString("HH:mm:ss");
-
-            await SendNotificationToSlack(dequeuedMsg.Message, beginTime, endTime);
+            await SendMessagesToSlack(dequeuedMsg.Message, beginTime);
         }
 
-        private static async Task SendNotificationToSlack(string message, string beginTime, string endTime)
+        private static async Task SendMessagesToSlack(string message, string beginTime)
         {
             using var httpClient = new HttpClient(new HttpClientHandler());
 
-            var notification = $"O processo de LEITURA DA FILA da mensagem: [ {message} ], iníciou as {beginTime} e finalizou as {endTime}";
+            await SendMessageFromQueue(message, httpClient);
 
-            var strContent = new StringContent("{'text':'" + notification + "'}");
-            var slackChannelUrl = Environment.GetEnvironmentVariable("SlackNotificationChannelWebhook");
+            await SendLogMessage(message, beginTime, httpClient);
+        }
 
-            await httpClient.PostAsync(slackChannelUrl, strContent);
+        private static async Task SendMessageFromQueue(string message, HttpClient httpClient)
+        {
+            var strContent = new StringContent("{'text':'" + message + "'}");
+            var slackMsgChannelUrl = Environment.GetEnvironmentVariable("SlackMessageChannelWebhook");
+
+            await httpClient.PostAsync(slackMsgChannelUrl, strContent);
+        }
+
+        private static async Task SendLogMessage(string message, string beginTime, HttpClient httpClient)
+        {
+            var endTime = DateTime.UtcNow.AddHours(-3).ToString("HH:mm:ss");
+            var logNotification = $"O processo de LEITURA DA FILA da mensagem: [ {message} ], iníciou as {beginTime} e finalizou as {endTime}";
+
+            var strContent = new StringContent("{'text':'" + logNotification + "'}");
+            var slackLogChannelUrl = Environment.GetEnvironmentVariable("SlackProcessLoggingChannelWebhook");
+
+            await httpClient.PostAsync(slackLogChannelUrl, strContent);
         }
     }
 
